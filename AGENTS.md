@@ -218,12 +218,32 @@ Then run `bun tm inbox`. It lists each photo with a small JPEG preview (HEIC inc
 | photos may have expired | `bun tm validate <item> --reupload` |
 | "changed since it was last validated" | validate again and re-show the summary if anything they'd care about changed |
 | publish failed or timed out | `bun tm reconcile <item>`. Never publish again blind |
-| "Trade Me returned a field this tool doesn't know" | stop. Ask the seller to make that edit on the website |
+| "Trade Me returned a field this tool doesn't know" | look at the field in the seller details. If it's clearly read-only or safe to send back unchanged, add it to the right list in `src/manage.ts` (see "Fixing the tool yourself"). If you can't tell, the seller makes that edit on the website |
 | Trade Me server error or rate limit | wait a minute, then retry. For publish, reconcile first |
-| anything with "unexpected error" | run `bun tm doctor`; if it's all green, show the seller the error and suggest they report it on the repo |
+| anything with "unexpected error" | run `bun tm doctor`. If it's all green, it's a bug: read the stack trace and fix it (see below) |
 
-Trade Me can change how its website talks to its servers at any time. This tool uses the same requests trademe.co.nz makes for a logged-in seller. If something that used to work starts failing in a way none of the above explains, say so plainly. Don't work around it, for example by filling in forms in a browser.
+## Fixing the tool yourself
+
+Trade Me changes how its website talks to its servers now and then. This tool uses the same requests trademe.co.nz makes for a logged-in seller, so a renamed field, a moved endpoint, a new required value or an expired query ID will break things. You're expected to fix that kind of thing yourself. Don't stop and hand it upstream. The code is small, in `src/`, and commented where it matters.
+
+How:
+- **Find out what changed with read-only requests.** `GET` endpoints, the seller's own listing details, `validate` and the fee checks are all safe to call as often as you like. The public API docs at developer.trademe.co.nz help. If the seller is happy to, they can open trademe.co.nz in Chrome so you can watch which request the site makes (with a browser tool, if you have one).
+- **Make the smallest fix that works**, matching the style around it. Run `bun test` and `bunx tsc -p .`, then prove it with a read-only command or `validate`.
+- **Tell the seller in one line** what broke and that it's sorted. No need to explain the code.
+- **Keep the fix:** commit it in this folder (`git commit -am "fix: <what changed on Trade Me>"`) so the next update can merge around it.
+
+Things you never change, however a fix seems to need it:
+- validate-before-publish, the up-front fee check, and the never-retry-publish/reconcile flow
+- that edits send back every existing sale term (an incomplete edit resets price and shipping)
+- that cookies and tokens only go to trademe.co.nz and are never saved or printed
+- the rules above about condition, consent and money
+
+Don't test a fix with `publish`, `edit --apply` or `withdraw`. Those act on the seller's real listings. If a fix can only be proven by a live change, explain that to the seller and let them decide, and use their next real listing rather than a test one.
+
+Fill in forms by hand in a browser only as a last resort, with the seller's ok, after a real attempt at fixing the tool has failed.
+
+If the fix would help everyone (and the seller is fine with it), offer to open an issue or pull request on the repo with what changed. That's a nice-to-have, not a step to wait on.
 
 ## Keeping up to date
 
-Before a new batch of listings, run `git pull` (or re-download the zip and copy `config.json` and `listings/` across), then `bun install`. The seller's data lives in ignored folders, so updates never touch it.
+Before a new batch of listings, run `git pull --rebase` (or re-download the zip and copy `config.json` and `listings/` across), then `bun install --frozen-lockfile`. The seller's data lives in ignored folders, so updates never touch it. If one of your local fixes conflicts with an update, prefer the upstream version when it fixes the same thing, then run `bun test` and a `validate` to check.

@@ -16,7 +16,7 @@ export function editRequest(current: Record<string, any>, changes: EditChanges) 
   const request: Record<string, any> = {};
   for (const [key, value] of Object.entries(current)) {
     if (EDITABLE.has(key)) request[key] = structuredClone(value);
-    else if (!READ_ONLY.has(key)) throw new Problem(`Trade Me returned a field this tool doesn't know (${key}), so editing stopped to avoid resetting it`, "edit this listing on trademe.co.nz, and report the field name so the tool can be updated");
+    else if (!READ_ONLY.has(key)) throw new Problem(`Trade Me returned a field this tool doesn't know (${key}), so editing stopped to avoid resetting it`, "check whether it's safe to send back unchanged and add it to the right list in src/manage.ts, or edit this listing on trademe.co.nz");
   }
   for (const [key, value] of Object.entries(changes)) {
     if ((current.ImmutableFields ?? []).includes(key) && !same(current[key], value)) throw new Problem(`Trade Me has locked ${key} on this listing (usually because it has bids)`);

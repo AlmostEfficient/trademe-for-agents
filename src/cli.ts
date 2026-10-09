@@ -522,7 +522,7 @@ try {
   if (error instanceof Problem) {
     console.error(`✗ ${error.message}${error.fix ? `\n  fix: ${error.fix}` : ""}`);
   } else {
-    console.error(`✗ unexpected error: ${error?.stack ?? error}\n  fix: run bun tm doctor. if that's all green, this is a bug; the message above is what to report.`);
+    console.error(`✗ unexpected error: ${error?.stack ?? error}\n  fix: run bun tm doctor. if that's all green, this is a bug in src/: the trace above shows where. see "Fixing the tool yourself" in AGENTS.md.`);
   }
   process.exitCode = 1;
 }
