@@ -1,6 +1,6 @@
 import { mkdir, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import { findBrowser } from "./browser";
+import { installedBrowsers } from "./browser";
 import { tradeMeClient, type Client } from "./client";
 import { PAYMENT_IDS, buildRequest, checkItem, defaultItem, differences, feesAccepted, loadConfig, loadItem, type Config, type Shipping } from "./listing";
 import { changesFrom, editRequest, liveListings, platform, withdraw } from "./manage";
@@ -13,8 +13,8 @@ const HELP = `trade me for agents
 
 setup
   bun tm doctor [--local]            check readiness (--local skips account/network)
-  bun tm login                       log in to Trade Me in a browser window
-  bun tm logout                      forget the Trade Me login
+  bun tm login                       find the Trade Me login in the seller's browser (opens the login page if needed)
+  bun tm logout                      forget which browser profile to use
   bun tm setup [--suburb <name>] [--payments cash,bank-deposit,ping] [--shipping arranged|pickup-only|free] [--auction]
   bun tm suburb <name>               find a pickup suburb
   bun tm category <words>            find a category ID
@@ -162,8 +162,8 @@ const commands: Record<string, () => Promise<void>> = {
     }
     const heic = await import("heic-convert").then(m => typeof m.default === "function", () => false);
     line(heic, "HEIC converter installed", "run: bun install --frozen-lockfile");
-    const browser = findBrowser();
-    line(Boolean(browser), browser ? `browser: ${browser}` : "no usable Chromium-based browser", "install Chrome/Edge/Brave/Chromium, or set TM_BROWSER to its executable's full path (check an existing override for typos)");
+    const browsers = await installedBrowsers().catch(() => []);
+    line(browsers.length > 0, browsers.length ? `browser: ${browsers.join(", ")}` : "no Chrome, Arc, Brave or Edge", "ask the seller to install Google Chrome and log in to Trade Me there (Safari can't be read)");
     try {
       const { rm } = await import("node:fs/promises");
       for (const dir of [SESSION_DIR, LISTINGS_DIR, INBOX_DIR]) {
@@ -194,14 +194,15 @@ const commands: Record<string, () => Promise<void>> = {
   },
 
   async login() {
-    await login();
+    const profile = await login();
+    console.log(`using the Trade Me login from ${profile.browser} (${profile.profile}).`);
     const client = await tradeMeClient();
     const me = await client.request("v1/mytrademe/summary");
     console.log(`logged in as ${me.Nickname}.`);
     if (!await Bun.file(CONFIG_PATH).exists()) console.log("next: bun tm setup");
   },
 
-  async logout() { await logout(); console.log("logged out. the workspace's browser profile is deleted too."); },
+  async logout() { await logout(); console.log("forgot the browser profile. to fully log out, log out of Trade Me in the browser."); },
 
   async setup() {
     const existing = await readJson<Config>(CONFIG_PATH);

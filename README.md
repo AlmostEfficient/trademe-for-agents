@@ -8,9 +8,9 @@ sell your stuff on trade me by texting your ai. send it photos, tell it the pric
 2. open claude desktop (the code tab) or the chatgpt desktop app (codex)
 3. paste the link and say "please set this up"
 
-it'll install what it needs, then open a browser window so you can log in to trade me once. that's it.
+it'll install what it needs and use the trade me login you already have in chrome. your mac will ask for your password once so it can read that login. that's it.
 
-you'll need a mac, windows or linux computer with chrome or edge, and a trade me account.
+you'll need a mac with chrome (or arc, brave, edge) and a trade me account. mac only for now.
 
 ## then
 
@@ -23,7 +23,7 @@ you'll need a mac, windows or linux computer with chrome or edge, and a trade me
 
 - make up condition, faults or measurements. it only writes what you told it or what's on a label
 - pay for anything. normal listings are free. if one would cost money up front, it asks first
-- touch your normal browser. it logs in through its own separate window, and the login stays on your computer
+- look at anything else in your browser. it only reads your trade me login, and that never leaves your mac except to talk to trade me
 
 ## if you're an agent
 

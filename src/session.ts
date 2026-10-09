@@ -1,19 +1,16 @@
-import { chmod, rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { openProfile } from "./browser";
+import { installedBrowsers, openInBrowser, profiles, readCookies, type Cookie, type Profile } from "./browser";
 import { Problem, SESSION_DIR, readJson, writeJson } from "./util";
 
-// The workspace keeps its own browser profile and a copy of that profile's
-// Trade Me cookies. Nothing here touches the user's everyday browser profile.
-const PROFILE_DIR = resolve(SESSION_DIR, "browser-profile");
-const COOKIES_PATH = resolve(SESSION_DIR, "cookies.json");
+export type { Cookie };
+
+// The seller's own browser is the login. We remember which profile works
+// (never the cookies themselves) and read it fresh each time.
+const SOURCE_PATH = resolve(SESSION_DIR, "source.json");
 const REFRESH_URL = "https://www.trademe.co.nz/a/token-refresh";
 const LOGIN_URL = "https://www.trademe.co.nz/a/login";
 
-export type Cookie = { name: string; value: string; domain: string; path: string; expires?: number };
-
 const isTradeMe = (domain: string) => /(^|\.)trademe\.co\.nz$/.test(domain.replace(/^\./, ""));
-const now = () => Date.now() / 1000;
 
 export function cookieHeader(cookies: Cookie[], target: string) {
   const url = new URL(target);
@@ -22,31 +19,8 @@ export function cookieHeader(cookies: Cookie[], target: string) {
     const host = cookie.domain.replace(/^\./, "");
     const hostMatches = url.hostname === host || url.hostname.endsWith("." + host);
     const pathMatches = url.pathname === cookie.path || url.pathname.startsWith(cookie.path.endsWith("/") ? cookie.path : cookie.path + "/");
-    return hostMatches && pathMatches && (!cookie.expires || cookie.expires <= 0 || cookie.expires > now()) && cookie.value;
+    return hostMatches && pathMatches && cookie.value;
   }).sort((a, b) => b.path.length - a.path.length).map(c => `${c.name}=${c.value}`).join("; ");
-}
-
-// Apply Set-Cookie headers so rotated cookies are kept for next time.
-export function mergeSetCookies(cookies: Cookie[], headers: string[], requestUrl: string) {
-  const result = [...cookies];
-  for (const header of headers) {
-    const [pair, ...attributes] = header.split(";").map(part => part.trim());
-    const eq = pair.indexOf("=");
-    if (eq < 1) continue;
-    const cookie: Cookie = { name: pair.slice(0, eq), value: pair.slice(eq + 1), domain: new URL(requestUrl).hostname, path: "/" };
-    for (const attribute of attributes) {
-      const [key, value = ""] = attribute.split("=");
-      const k = key.toLowerCase();
-      if (k === "domain") cookie.domain = value.startsWith(".") ? value : "." + value;
-      else if (k === "path") cookie.path = value || "/";
-      else if (k === "max-age") cookie.expires = now() + Number(value);
-      else if (k === "expires" && cookie.expires === undefined) cookie.expires = Date.parse(value) / 1000;
-    }
-    const index = result.findIndex(c => c.name === cookie.name && c.domain === cookie.domain && c.path === cookie.path);
-    if (index >= 0) result.splice(index, 1);
-    if (!cookie.expires || cookie.expires > now()) result.push(cookie);
-  }
-  return result;
 }
 
 async function refresh(cookies: Cookie[]) {
@@ -56,55 +30,57 @@ async function refresh(cookies: Cookie[]) {
   } catch {
     throw new Problem("could not reach trademe.co.nz", "check the internet connection, then try again");
   }
-  const updated = mergeSetCookies(cookies, response.headers.getSetCookie(), REFRESH_URL);
-  if (!response.ok) return { cookies: updated };
+  if (!response.ok) return undefined;
   const body = await response.json().catch(() => ({})) as { accessToken?: string };
-  return { cookies: updated, accessToken: body.accessToken };
+  return body.accessToken;
+}
+
+async function tryProfile(profile: Profile) {
+  const cookies = await readCookies(profile);
+  if (!cookies.length) return undefined;
+  const token = await refresh(cookies);
+  return token ? { token, clientId: cookies.find(c => c.name === "trademeclientid")?.value ?? "", profile } : undefined;
+}
+
+// Remembered profile first, then every other profile that has Trade Me cookies.
+async function findLogin() {
+  const all = await profiles();
+  const remembered = await readJson<{ path: string }>(SOURCE_PATH);
+  const ordered = [...all.filter(p => p.path === remembered?.path), ...all.filter(p => p.path !== remembered?.path)];
+  for (const profile of ordered) {
+    const found = await tryProfile(profile);
+    if (found) {
+      if (found.profile.path !== remembered?.path) await writeJson(SOURCE_PATH, { browser: profile.browser, profile: profile.profile, path: profile.path });
+      return found;
+    }
+  }
+  return { all };
 }
 
 export async function accessToken() {
-  const saved = await readJson<{ cookies: Cookie[] }>(COOKIES_PATH);
-  if (!saved?.cookies?.length) throw new Problem("not logged in to Trade Me yet", "run: bun tm login");
-  const result = await refresh(saved.cookies);
-  await saveCookies(result.cookies);
-  if (!result.accessToken) throw new Problem("the Trade Me login has expired", "run: bun tm login (if Trade Me remembers you, the window closes by itself)");
-  const clientId = result.cookies.find(c => c.name === "trademeclientid")?.value ?? "";
-  return { token: result.accessToken, clientId };
-}
-
-async function saveCookies(cookies: Cookie[]) {
-  await writeJson(COOKIES_PATH, { savedAt: new Date().toISOString(), cookies });
-  await chmod(COOKIES_PATH, 0o600).catch(() => {});
+  const found = await findLogin();
+  if ("token" in found) return { token: found.token!, clientId: found.clientId! };
+  if (!found.all.length) throw new Problem("no Chrome, Arc, Brave or Edge found on this Mac", "install Google Chrome, then: bun tm login");
+  throw new Problem("not logged in to Trade Me in any browser on this Mac", "run: bun tm login");
 }
 
 export async function login({ timeoutMinutes = 10 } = {}) {
-  console.log("opening a browser window. log in to Trade Me there; it closes by itself once you're in.");
-  const browser = await openProfile(PROFILE_DIR, LOGIN_URL);
-  let closed = false;
-  browser.exited?.then(() => { closed = true; });
+  const first = await findLogin();
+  if ("token" in first) return first.profile!;
+  const browsers = await installedBrowsers();
+  if (!browsers.length) throw new Problem("no Chrome, Arc, Brave or Edge found on this Mac", "install Google Chrome, then: bun tm login");
+  const app = browsers.includes("Google Chrome") ? "Google Chrome" : browsers[0];
+  await openInBrowser(app, LOGIN_URL);
+  console.log(`opened the Trade Me login page in ${app}. waiting for the login (browsers save it within about 30 seconds)...`);
   const deadline = Date.now() + timeoutMinutes * 60_000;
-  try {
-    while (Date.now() < deadline) {
-      if (closed) throw new Problem("the login window was closed before logging in finished", "run: bun tm login, and leave the window open until it closes by itself");
-      let raw: any[];
-      try { raw = await browser.cookies(); }
-      catch { throw new Problem("lost the connection to the login window", "run: bun tm login again"); }
-      const cookies: Cookie[] = raw.filter(c => isTradeMe(c.domain)).map(c => ({ name: c.name, value: c.value, domain: c.domain, path: c.path, ...(c.expires > 0 ? { expires: c.expires } : {}) }));
-      if (cookies.length) {
-        const result = await refresh(cookies).catch(() => ({ cookies, accessToken: undefined }));
-        if (result.accessToken) {
-          await saveCookies(result.cookies);
-          return;
-        }
-      }
-      await Bun.sleep(2000);
-    }
-    throw new Problem(`still not logged in after ${timeoutMinutes} minutes`, "run: bun tm login again when ready");
-  } finally {
-    if (!closed) await browser.close();
+  while (Date.now() < deadline) {
+    await Bun.sleep(5000);
+    const found = await findLogin();
+    if ("token" in found) return found.profile!;
   }
+  throw new Problem(`still not logged in after ${timeoutMinutes} minutes`, `make sure the seller logged in to Trade Me in ${app} (not Safari), then: bun tm login`);
 }
 
 export async function logout() {
-  await rm(SESSION_DIR, { recursive: true, force: true });
+  await Bun.file(SOURCE_PATH).delete().catch(() => {});
 }

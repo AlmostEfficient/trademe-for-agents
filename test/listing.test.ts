@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { buildRequest, checkItem, differences, feesAccepted, type Config, type Item } from "../src/listing";
 import { changesFrom, editRequest } from "../src/manage";
-import { cookieHeader, mergeSetCookies } from "../src/session";
+import { cookieHeader } from "../src/session";
 
 const config: Config = {
   pickupSuburb: { id: 84, name: "Herne Bay" },
@@ -48,7 +48,7 @@ test("drafts report every missing piece", () => {
 });
 
 test("cents are handled exactly", () => {
-  expect(buildRequest(item({ price: { buyNow: 19.99 } }), config, [1]).BuyNowPrice).toBe(19.99);
+  expect((buildRequest(item({ price: { buyNow: 19.99 } }), config, [1]) as any).BuyNowPrice).toBe(19.99);
   expect(() => buildRequest(item({ price: { buyNow: 19.999 } }), config, [1])).toThrow();
 });
 
@@ -77,11 +77,9 @@ test("edits keep every sale term and refuse unknown fields", () => {
   expect(() => editRequest({ ...current, ImmutableFields: ["Title"] }, changes)).toThrow(/locked/);
 });
 
-test("cookies only go to Trade Me and follow rotations", () => {
+test("cookies only go to Trade Me", () => {
   const cookies = [{ name: "a", value: "1", domain: ".trademe.co.nz", path: "/" }, { name: "b", value: "2", domain: "www.trademe.co.nz", path: "/a" }];
   expect(cookieHeader(cookies, "https://www.trademe.co.nz/a/token-refresh")).toBe("b=2; a=1");
   expect(cookieHeader(cookies, "https://api.trademe.co.nz/x")).toBe("a=1");
   expect(() => cookieHeader(cookies, "https://evil.example/")).toThrow();
-  const rotated = mergeSetCookies(cookies, ["a=9; Domain=trademe.co.nz; Path=/", "b=; Path=/a; Max-Age=0"], "https://www.trademe.co.nz/a/token-refresh");
-  expect(rotated).toEqual([{ name: "a", value: "9", domain: ".trademe.co.nz", path: "/" }]);
 });
