@@ -5,6 +5,7 @@ import { tradeMeClient, type Client } from "./client";
 import { PAYMENT_IDS, buildRequest, checkItem, defaultItem, differences, feesAccepted, loadConfig, loadItem, type Config, type Shipping } from "./listing";
 import { changesFrom, editRequest, liveListings, platform, withdraw } from "./manage";
 import { fromAlbum, fromDownloads, listAlbums } from "./collect";
+import { servePhone } from "./phone";
 import { addPhotos, editPhoto, inboxPreviews, uploadPhotos } from "./photos";
 import { login, logout } from "./session";
 import { CONFIG_PATH, INBOX_DIR, LISTINGS_DIR, Problem, SESSION_DIR, itemDir, listingUrl, readJson, sha256, writeJson } from "./util";
@@ -23,6 +24,7 @@ setup
 listing
   bun tm inbox                       list photos in inbox/ with viewable previews
   bun tm collect downloads [--minutes 60]   copy recent photos from Downloads (AirDrop) into inbox/
+  bun tm phone [--minutes 20]        QR code + upload page for the seller's phone (same Wi-Fi); run in the background
   bun tm collect albums              list Apple Photos albums
   bun tm collect album ["<name>"] [--all|--new-only]   copy new photos from the seller's album into inbox/ (remembers the album)
   bun tm new <item>                  start a draft in listings/<item>/
@@ -295,6 +297,8 @@ ${flags.preview ? "ask the seller, then run bun tm setup with any changes." : "e
     if (result.skipped) console.log(`using "${result.album}" from now on. ${result.skipped} photos already in it were left alone; only new ones will be collected.`);
     else console.log(result.copied.length ? `copied ${result.copied.length} new photo${result.copied.length === 1 ? "" : "s"} from "${result.album}" into inbox/. run bun tm inbox to see them.` : `nothing new in "${result.album}". if the seller just added photos on their phone, iCloud can take a minute or two to reach the Mac.`);
   },
+
+  async phone() { await servePhone({ idleMinutes: Number(flag("minutes") ?? 20) }); },
 
   async new() {
     const slug = need(args[0], "bun tm new <item>");

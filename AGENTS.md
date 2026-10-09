@@ -52,6 +52,14 @@ Nothing in this workspace needs Full Disk Access, Accessibility or Screen Record
 - **Their choices:** the album (one or two popups), AirDrop, or the inbox folder.
 - **If they hit Don't Allow:** use another route, or they switch it on in System Settings > Privacy & Security > Automation > <your app> > Photos (and Privacy & Security > Photos).
 
+### The phone upload page (firewall, maybe)
+
+- **Needed for:** `bun tm phone` only, and only if the Mac's firewall is switched on (it's off by default).
+- **Check first:** `/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate`. No popup. If it says disabled, there's nothing to warn about.
+- **What pops up:** "Do you want the application 'bun' to accept incoming network connections?"
+- **Say something like:** "your mac might ask if it's ok for the photo page to accept connections. that's your phone sending photos over wifi."
+- **Their choices:** Allow, or use AirDrop, the folder or the album instead.
+
 ### Apple's developer tools (only if git is missing)
 
 - **Check first:** `git --version`. On a Mac without developer tools, that command itself triggers the popup, so check with `xcode-select -p` first (it prints a path if they're installed, and an error with no popup if not).
@@ -91,7 +99,7 @@ Ask everything in **one friendly message**, with the suggested answer filled in 
 3. **Shipping:** "for posting, the usual is to sort out the cost with the buyer after it sells. or i can make things pickup only by default, or offer free shipping." Explain "sort it out after" in a few words if they're new: the buyer messages them and they agree a price. Fixed shipping prices are better set per item, since they depend on size.
 4. **Payment:** "your account's set to take cash and Ping. want to keep that, or add bank deposit?" If the account had nothing set, suggest cash and bank deposit, the common pair. Only offer Ping or Afterpay if their account already has them.
 5. **Price style:** "do you want fixed prices (buyers pay your price and it's sold), or auctions (bidding over 7 days)?" Fixed price suits most casual sellers. Auctions suit items with uncertain value, or people who enjoy the bidding.
-6. **Photos:** "how do you want to send me photos?" Lead with the album route if they use iCloud Photos, then the others from "Getting photos". Mention which ones bring a one-time popup.
+6. **Photos:** "how do you want to send me photos?" Offer the routes from "Getting photos" in order, and mention which ones bring a one-time popup.
 
 Example:
 
@@ -102,23 +110,29 @@ Example:
 > - payment: cash or Ping, like your account's set up?
 > - fixed prices rather than auctions?
 >
-> and for photos: if you make an album on your phone called "trade me" and add stuff to it, i'll grab new photos from there whenever you say. your mac will ask once if i can use photos. or you can airdrop them, or drag them into a folder.
+> and for photos, whatever's easiest: airdrop them to your mac, drag them into a folder i open for you, keep an album on your phone that i check, or scan a qr code and snap them straight from your phone.
 
 Then save their answers, e.g. `bun tm setup --suburb "Ponsonby" --pickup yes --shipping arranged --payments cash,bank-deposit`, plus `--auction` if they chose auctions. Read the saved result back to them in one line. Individual items can still differ ("the couch is pickup only"). Write those exceptions into that item's `listing.json`, not the defaults.
 
 ## Getting photos
 
-Use whichever route they picked in the first conversation.
+Offer these in this order, and use whichever they pick. Mention which ones bring a one-time popup.
 
-- **A Photos album (best for iPhone + Mac with iCloud Photos).** The seller adds photos to one album on their phone; you collect them when they say "added some stuff".
-  - First time: `bun tm collect albums` lists the album names (this triggers the Photos popup, so ask first). Match the album they named, then run `bun tm collect album "<name>"`. It stops and tells you how many photos are already in the album. Ask whether those are for sale too, then re-run with `--all` (grab them) or `--new-only` (leave them alone, and only collect what gets added from now on). This matters: an old album full of holiday photos isn't a list of things to sell.
-  - After that, the album is remembered. `bun tm collect album` with no name copies only photos added since last time.
-  - "Nothing new" right after they added photos: iCloud can take a minute or two to sync to the Mac. Wait and retry once, then ask them to open Photos on the Mac to nudge the sync.
-  - It has to be a regular album. iCloud **Shared Albums** (the ones you invite people to) can't be read this way. If that's what they made, ask them to make a regular album instead.
-  - Album missing on the Mac: iCloud Photos is probably off on the Mac (Photos > Settings > iCloud). Offer to use AirDrop instead.
-- **AirDrop to the Mac:** "airdrop the photos to your mac, then tell me when they're done." Then run `bun tm collect downloads --minutes 30`, widening the window if they sent them earlier. One-time popup: see above.
-- **A folder:** run `open inbox` so a Finder window appears, and ask them to drag the photos in. No popups.
-- **Drop them in the chat:** if you can see the actual file paths of attachments, pass them to `bun tm add-photos`. If you can only see the images and can't reach the files, say so and use another route. Never try to recreate a photo.
+1. **AirDrop to the Mac.** "airdrop the photos to your mac, then tell me when they're done." Then run `bun tm collect downloads --minutes 30`, widening the window if they sent them earlier. The first run asks for Downloads access (see above).
+2. **Drag them into a folder.** Run `open inbox` so a Finder window appears, and ask them to drag the photos in. No popups.
+3. **A Photos album** (iPhone + Mac with iCloud Photos). The seller adds photos to one album on their phone; you collect them when they say "added some stuff". Photos popup the first time (see above).
+   - First time: `bun tm collect albums` lists the album names. Match the one they named, then run `bun tm collect album "<name>"`. It stops and tells you how many photos are already in the album. Ask whether those are for sale too, then re-run with `--all` (grab them) or `--new-only` (only collect what gets added from now on). An old album full of holiday photos isn't a list of things to sell.
+   - After that, the album is remembered. `bun tm collect album` with no name copies only photos added since last time.
+   - "Nothing new" right after they added photos: iCloud can take a minute or two to reach the Mac. Wait and retry once, then ask them to open Photos on the Mac to nudge the sync.
+   - It has to be a regular album. iCloud **Shared Albums** (the ones you invite people to) can't be read by scripts on macOS. If that's what they made, ask them to make a regular album instead.
+   - Album missing on the Mac: iCloud Photos is probably off on the Mac (Photos > Settings > iCloud). Offer another route.
+4. **Scan a QR code with the phone.** Run `bun tm phone` in the background (it keeps running). It opens a QR code on the Mac's screen. The seller scans it with the phone camera, and gets a page with "take photos" and "pick from my photos" buttons. Photos land straight in `inbox/`, and the command prints a line for each one. It stops by itself after 20 quiet minutes.
+   - Say something like: "a qr code just popped up on your mac. scan it with your phone camera and you can snap photos straight to me. your phone needs to be on the same wifi."
+   - Page won't load on the phone: check the phone is on the same Wi-Fi, not mobile data. Guest networks and some office or uni Wi-Fi block devices from seeing each other. If so, use another route.
+   - The page only works with its random link. Don't post the link anywhere, and don't leave it running for days.
+   - If the Mac's firewall is on, macOS may ask "Do you want the application 'bun' to accept incoming network connections?" Warn them first; they click **Allow**. If they deny it, the page won't load, so use another route.
+
+**Photos dropped in the chat** also work if you can see the actual file paths of the attachments: pass them to `bun tm add-photos`. If you can only see the images and can't reach the files, say so and use one of the routes above. Never try to recreate a photo.
 
 Then run `bun tm inbox`. It lists each photo with a small JPEG preview (HEIC included) for you to look at.
 
