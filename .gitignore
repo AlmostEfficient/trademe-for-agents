@@ -1,0 +1,9 @@
+node_modules/
+config.json
+.session/
+listings/*
+!listings/.gitkeep
+inbox/*
+!inbox/.gitkeep
+inbox/.previews/
+.DS_Store
