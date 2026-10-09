@@ -12,6 +12,8 @@ it'll install what it needs and use the trade me login you already have in chrom
 
 you'll need a mac with chrome (or arc, brave, edge) and a trade me account. mac only for now.
 
+the agent installs Bun, which runs the tool, and the required photo libraries. you don't need Node.js, Homebrew or Python. the full [dependency list and setup steps](AGENTS.md#dependencies) are there for your agent.
+
 ## then
 
 - "i want to sell this stuff" and send photos, airdrop them to your mac, or drop them in the folder it shows you

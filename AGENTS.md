@@ -70,6 +70,18 @@ Nothing in this workspace needs Full Disk Access, Accessibility or Screen Record
 
 This works on macOS only, for now. Do these steps in order. If a step fails, follow its fix and carry on. Tell the seller what's happening in a sentence or two, not a log.
 
+### Dependencies
+
+- **Mac:** Apple Silicon or Intel, with a macOS version supported by the installed Bun release. Check [Bun's installation requirements](https://bun.com/docs/installation) before installing on an older Mac.
+- **Runtime:** Bun 1.2.21 or newer. Use Bun for all installation and commands, never npm. A separate Node.js installation is not required.
+- **Packages:** `bun install --frozen-lockfile` installs the versions in `bun.lock`, including `sharp` for images, `heic-convert` for iPhone photos, and `qrcode` for phone uploads. Keep optional dependencies enabled: sharp needs its Mac-specific binaries. Install on the destination Mac; never copy `node_modules` from another machine or CPU architecture. No separate image converter, Python, Homebrew, or system libvips installation is required for the normal prebuilt installation.
+- **Browser:** a supported Chromium browser with an initialized profile and the seller's Trade Me login. Safari is not supported. Keychain access is explained above.
+- **Built-in Mac tools:** `security` for Keychain access, `open` for opening pages/files, and `osascript` for the optional Photos album route. SQLite support comes with Bun; no separate SQLite installation is required.
+- **Optional:** Git for cloning and updates (a ZIP download works instead); Photos for album imports; a phone on the same reachable local network for QR uploads.
+- **Network:** dependency downloads and HTTPS access to `trademe.co.nz` and `api.trademe.co.nz`. Login and listing operations cannot run offline.
+
+### Setup steps
+
 1. **Check that you can run commands on their Mac.** This only works if you can run shell commands on the seller's own machine (for example Claude desktop's Code tab, or Codex in the ChatGPT desktop app). A cloud sandbox can't see their browser login. If you're in one, tell them which app and mode to switch to, and stop. If they're not on a Mac, tell them it's Mac-only for now.
 
 2. **Say hello and set expectations** in a couple of lines: you'll install a small tool, use their Trade Me login from their browser, and ask a few quick questions about how they sell. Nothing gets posted without their yes.
@@ -78,7 +90,7 @@ This works on macOS only, for now. Do these steps in order. If a step fails, fol
 
 4. **Install Bun** (the runtime these scripts use) if `bun --version` fails: `curl -fsSL https://bun.sh/install | bash`. No popups. A fresh install isn't on the PATH of an already-open shell, so use `~/.bun/bin/bun` in place of `bun` until a new shell picks it up.
 
-5. **Install dependencies and check:** `bun install`, then `bun tm doctor --local`. That checks everything except Trade Me, with no popups. Fix any `✗` lines first.
+5. **Install dependencies and check:** `bun install --frozen-lockfile`, then `bun tm doctor --local`. That checks everything except Trade Me, with no popups. Fix any `✗` lines first. If the locked install fails, report the error rather than silently replacing the lockfile or installing different versions.
 
 6. **Log in.** Run `bun tm login --check`, then follow "Reading their Trade Me login" above: explain, give the choices, and once they're ready run `bun tm login`. If they need to log in first, the command opens the Trade Me page in Chrome and waits up to 10 minutes. Give it a long timeout or run it in the background, and tell them to come back once they've logged in.
    - Several browser profiles: it uses whichever is logged in to Trade Me and remembers it.
