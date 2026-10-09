@@ -1,12 +1,12 @@
 # Trade Me for agents
 
-ell your stuff on trade me by texting your ai. send it photos, tell it the price and what's wrong with the thing, say yes, and it's listed.
+Sell your stuff on trade me by talking to your favourite agent. Send it photos, tell it the price and any description notes and it'll get to work!
 
 ## setup
 
 1. copy the link to this page
 2. open claude desktop (the code tab) or the chatgpt desktop app (codex)
-3. paste the link and say "please set this up"
+3. paste the link and say "please explain this to me and set it up"
 
 it'll install what it needs and use the trade me login you already have in chrome. your mac will ask for your password once so it can read that login. that's it.
 

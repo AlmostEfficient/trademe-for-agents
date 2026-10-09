@@ -4,7 +4,7 @@ import { installedBrowsers, loginCandidates } from "./browser";
 import { tradeMeClient, type Client } from "./client";
 import { PAYMENT_IDS, buildRequest, checkItem, defaultItem, differences, feesAccepted, loadConfig, loadItem, type Config, type Shipping } from "./listing";
 import { changesFrom, editRequest, liveListings, platform, withdraw } from "./manage";
-import { fromAlbum, fromDownloads } from "./collect";
+import { fromAlbum, fromDownloads, listAlbums } from "./collect";
 import { addPhotos, editPhoto, inboxPreviews, uploadPhotos } from "./photos";
 import { login, logout } from "./session";
 import { CONFIG_PATH, INBOX_DIR, LISTINGS_DIR, Problem, SESSION_DIR, itemDir, listingUrl, readJson, sha256, writeJson } from "./util";
@@ -23,7 +23,8 @@ setup
 listing
   bun tm inbox                       list photos in inbox/ with viewable previews
   bun tm collect downloads [--minutes 60]   copy recent photos from Downloads (AirDrop) into inbox/
-  bun tm collect album "<name>"      copy new photos from an Apple Photos album into inbox/ (Mac)
+  bun tm collect albums              list Apple Photos albums
+  bun tm collect album ["<name>"] [--all|--new-only]   copy new photos from the seller's album into inbox/ (remembers the album)
   bun tm new <item>                  start a draft in listings/<item>/
   bun tm add-photos <item> <files or folders...>
   bun tm photo <item> <01.jpg> [--crop l,t,r,b] [--rotate 90] [--reset]
@@ -275,11 +276,24 @@ ${flags.preview ? "ask the seller, then run bun tm setup with any changes." : "e
   },
 
   async collect() {
-    const source = need(args[0], 'bun tm collect downloads | album "<name>"');
-    const copied = source === "downloads" ? await fromDownloads(Number(flag("minutes") ?? 60))
-      : source === "album" ? await fromAlbum(need(args.slice(1).join(" "), 'bun tm collect album "<name>"'))
-      : (() => { throw new Problem(`unknown source "${source}"`, 'use: downloads or album "<name>"'); })();
-    console.log(copied.length ? `copied ${copied.length} new photo${copied.length === 1 ? "" : "s"} into inbox/. run bun tm inbox to see them.` : "no new photos found.");
+    const source = need(args[0], 'bun tm collect downloads | albums | album ["<name>"]');
+    if (source === "albums") {
+      for (const a of await listAlbums()) console.log(`"${a.name}"\t${a.count} items`);
+      return;
+    }
+    if (source === "downloads") {
+      const copied = await fromDownloads(Number(flag("minutes") ?? 60));
+      return console.log(copied.length ? `copied ${copied.length} new photo${copied.length === 1 ? "" : "s"} into inbox/. run bun tm inbox to see them.` : "no new photos in Downloads.");
+    }
+    if (source !== "album") throw new Problem(`unknown source "${source}"`, 'use: downloads, albums, or album "<name>"');
+    const config = await readJson<Config>(CONFIG_PATH);
+    const name = args.slice(1).join(" ") || config?.photoAlbum;
+    if (!name) throw new Problem("which album?", "run bun tm collect albums, ask the seller which one, then pass its name");
+    const result = await fromAlbum(name, flags.all ? "all" : flags["new-only"] ? "new-only" : undefined);
+    // Remember it, so next time "i added more" needs no name.
+    if (config && config.photoAlbum !== result.album) await writeJson(CONFIG_PATH, { ...config, photoAlbum: result.album });
+    if (result.skipped) console.log(`using "${result.album}" from now on. ${result.skipped} photos already in it were left alone; only new ones will be collected.`);
+    else console.log(result.copied.length ? `copied ${result.copied.length} new photo${result.copied.length === 1 ? "" : "s"} from "${result.album}" into inbox/. run bun tm inbox to see them.` : `nothing new in "${result.album}". if the seller just added photos on their phone, iCloud can take a minute or two to reach the Mac.`);
   },
 
   async new() {

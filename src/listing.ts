@@ -13,6 +13,7 @@ export type Config = {
   listingType: "buy-now" | "auction";
   durationDays: number;
   allowOffers: boolean;
+  photoAlbum?: string;
 };
 
 // listing.json: written by the agent. Anything left out falls back to config.json.
