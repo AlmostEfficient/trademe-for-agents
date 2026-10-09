@@ -1,6 +1,6 @@
 import { mkdir, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import { installedBrowsers } from "./browser";
+import { installedBrowsers, loginCandidates } from "./browser";
 import { tradeMeClient, type Client } from "./client";
 import { PAYMENT_IDS, buildRequest, checkItem, defaultItem, differences, feesAccepted, loadConfig, loadItem, type Config, type Shipping } from "./listing";
 import { changesFrom, editRequest, liveListings, platform, withdraw } from "./manage";
@@ -13,9 +13,10 @@ const HELP = `trade me for agents
 
 setup
   bun tm doctor [--local]            check readiness (--local skips account/network)
+  bun tm login --check               see which browser has a Trade Me login, with no popups
   bun tm login                       find the Trade Me login in the seller's browser (opens the login page if needed)
   bun tm logout                      forget which browser profile to use
-  bun tm setup [--suburb <name>] [--payments cash,bank-deposit,ping] [--shipping arranged|pickup-only|free] [--auction]
+  bun tm setup [--preview] [--suburb <name>] [--pickup yes|no] [--payments cash,bank-deposit,ping] [--shipping arranged|pickup-only|free] [--auction]
   bun tm suburb <name>               find a pickup suburb
   bun tm category <words>            find a category ID
 
@@ -194,6 +195,13 @@ const commands: Record<string, () => Promise<void>> = {
   },
 
   async login() {
+    if (flags.check) {
+      // Looks for a Trade Me login without decrypting anything, so no popup.
+      const found = await loginCandidates();
+      if (!found.length) console.log("no Trade Me login found in Chrome, Arc, Brave or Edge. login would open the Trade Me login page.");
+      else for (const f of found) console.log(`${f.browser} (${f.profile}) has a Trade Me login. reading it will ask for the Mac password once (Keychain).`);
+      return;
+    }
     const profile = await login();
     console.log(`using the Trade Me login from ${profile.browser} (${profile.profile}).`);
     const client = await tradeMeClient();
@@ -224,23 +232,25 @@ const commands: Record<string, () => Promise<void>> = {
     for (const name of payments) if (!PAYMENT_IDS[name]) throw new Problem(`unknown payment method "${name}"`, `use: ${Object.keys(PAYMENT_IDS).join(", ")}`);
     const shipping = (flag("shipping") as Shipping | undefined) ?? existing?.shipping ?? "arranged";
     if (!["arranged", "pickup-only", "free"].includes(shipping as string) && !Array.isArray(shipping)) throw new Problem('--shipping takes arranged, pickup-only or free');
+    if (flag("pickup") && !["yes", "no"].includes(flag("pickup")!)) throw new Problem("--pickup takes yes or no");
 
     const config: Config = {
       pickupSuburb: { id: suburb.id, name: suburb.name, district: suburb.district },
       paymentMethods: payments,
       shipping,
-      pickup: existing?.pickup ?? true,
+      pickup: flag("pickup") ? flag("pickup") !== "no" : existing?.pickup ?? true,
       listingType: flags.auction ? "auction" : flags["buy-now"] ? "buy-now" : existing?.listingType ?? "buy-now",
       durationDays: Number(flag("days") ?? existing?.durationDays ?? 7),
       allowOffers: existing?.allowOffers ?? false,
     };
-    await writeJson(CONFIG_PATH, config);
-    console.log(`saved config.json:
-  pickup     ${suburb.name}, ${suburb.district}${ambiguous ? `  (there's more than one ${suburb.name}; check with: bun tm suburb "${suburb.name}")` : ""}
+    if (!config.pickup && config.shipping === "pickup-only") throw new Problem("no pickup and pickup-only shipping can't both be the default", "pick --pickup yes, or --shipping arranged or free");
+    if (!flags.preview) await writeJson(CONFIG_PATH, config);
+    console.log(`${flags.preview ? "suggested defaults (not saved yet)" : "saved config.json"}:
+  pickup     ${config.pickup ? `${suburb.name}, ${suburb.district}` : `not offered (location shown as ${suburb.name})`}${ambiguous ? `  (there's more than one ${suburb.name}; check with: bun tm suburb "${suburb.name}")` : ""}
   payment    ${payments.join(", ")}${!flag("payments") && fromAccount.length ? " (from the account's selling preferences)" : ""}
   shipping   ${describeShipping(shipping)}
   type       ${config.listingType}, ${config.durationDays} days
-confirm these with the seller. every item can override them in its listing.json.`);
+${flags.preview ? "ask the seller, then run bun tm setup with any changes." : "every item can override these in its listing.json."}`);
   },
 
   async suburb() {

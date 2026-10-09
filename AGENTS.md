@@ -6,24 +6,57 @@ The `bun tm` commands in this folder do the Trade Me work: login, photos, valida
 
 Run `bun tm help` for the full command list. Every failure prints a `✗` line saying what went wrong and a `fix:` line saying what to do next. Follow the fix. When it says "ask the seller", ask in plain words.
 
-## Before anything: macOS popups
+## Ask before the Mac asks
 
-The seller's Mac will show permission popups at a few points. A popup nobody warned them about looks like malware. Warn them **before** the step that triggers it, in your own words, using the notes below. Each popup appears once. After that, the Mac remembers.
+macOS shows permission popups at a few points. A popup nobody warned them about looks like a scam, and people click Deny. So for every step below that can trigger one:
 
-| when | what pops up | what to tell them | what to click |
-|---|---|---|---|
-| first `bun tm login` | **Keychain**: "security wants to use your confidential information stored in 'Chrome Safe Storage'" (or Arc/Brave/Edge) | "your mac is about to ask for your login password. that lets me read your trade me login from chrome, so you don't have to log in again. it only reads trade me's cookies." | type the Mac login password (the one used to unlock the Mac), then **Always Allow**. Plain "Allow" works too, but it will ask again every time |
-| first `bun tm collect downloads` | "<your app> would like to access files in your Downloads folder" | "your mac will ask if i can look in downloads. that's where airdropped photos land." | **Allow** |
-| first `bun tm collect album` | "<your app> wants access to control Photos", sometimes followed by a Photos access request | "your mac will ask if i can use the photos app. i only copy photos out of the album you name." | **OK** / **Allow** |
-| installing Bun or git (only if missing) | maybe "install command line developer tools?" for git | "your mac wants to install apple's developer tools so i can download this. takes a few minutes." | **Install** |
+1. **Check first**, using the popup-free check listed, so you know whether it's even needed.
+2. **Explain in a sentence or two** what will pop up and why you need it, in plain words.
+3. **Offer the alternatives**, including any that avoid the popup.
+4. **Let them choose.** Run the step only after they pick. If they'd rather not, take the alternative without pushing.
 
-`<your app>` is whatever runs you: Claude, ChatGPT, Codex, Terminal.
+Each popup appears once. After that, the Mac remembers. `<your app>` below means whatever runs you: Claude, ChatGPT, Codex or Terminal.
 
-If they clicked **Deny** or **Don't Allow** by accident:
-- Keychain: just run `bun tm login` again; it asks again.
-- Downloads or Photos: macOS doesn't ask twice. Tell them to open System Settings > Privacy & Security, then **Files & Folders** (Downloads) or **Automation** / **Photos**, find your app, and switch it on. Or skip that route and use another way of getting photos.
+Nothing in this workspace needs Full Disk Access, Accessibility or Screen Recording. If you're ever about to ask for one of those, stop: something's wrong.
 
-Nothing here needs Full Disk Access. If you find yourself about to ask for it, stop: something's wrong.
+### Reading their Trade Me login (Keychain, once)
+
+- **Needed for:** everything. It's how the tool talks to Trade Me as them.
+- **Check first:** `bun tm login --check`. It shows which browser already has a Trade Me login, with no popup.
+- **What pops up:** "security wants to use your confidential information stored in 'Chrome Safe Storage' in your keychain" (or Arc, Brave or Edge). There's a password field.
+- **Say something like:** "to post listings as you, i need your trade me login from chrome. your mac protects that with a password, so it'll ask for your mac password once (the one you unlock it with). i only read trade me's login, nothing else in chrome, and it never leaves your mac except to talk to trade me."
+- **Their choices:**
+  - type the password and click **Always Allow** (recommended: it won't ask again)
+  - click **Allow**, which works but asks every time you do something on Trade Me
+  - not logged in to Trade Me in Chrome yet: they log in first (the command opens the page for them), then the popup appears
+  - Safari only: Safari's login can't be read. They'd install Google Chrome and log in to Trade Me there once.
+- **Honest limit:** there's no way to use this without that one password popup. If they decline, say that's fine and that it can't post for them without it. Don't push.
+- **If they hit Deny:** just run `bun tm login` again; it asks again.
+- **Careful:** every command that talks to Trade Me reads this login, and so can trigger the popup: `doctor` (without `--local`), `setup`, `validate`, `publish`, `listings` and so on. Don't run any of them until you've had this conversation. `login --check`, `doctor --local`, `suburb`, `category`, `inbox`, `new`, `add-photos` and `photo` never trigger it.
+
+### AirDropped photos (Downloads folder, once)
+
+- **Needed for:** `bun tm collect downloads` only.
+- **Check first:** nothing to check. macOS only asks the first time something reads Downloads.
+- **What pops up:** "<your app> would like to access files in your Downloads folder."
+- **Say something like:** "easiest is airdropping them to your mac. they land in downloads, and your mac will ask once if i can look in there."
+- **Their choices:** AirDrop (one popup), or the inbox folder (no popup: you open it in Finder and they drag the photos in), or attaching them in the chat if your app gives you the files.
+- **If they hit Don't Allow:** macOS won't ask again. Either use the inbox folder, or they switch it on in System Settings > Privacy & Security > Files & Folders > <your app> > Downloads Folder.
+
+### An Apple Photos album (Photos, once)
+
+- **Needed for:** `bun tm collect album` only.
+- **Check first:** ask whether they already keep an album of things to sell. If not, don't suggest this route.
+- **What pops up:** "<your app> wants access to control Photos", sometimes followed by a Photos library access request.
+- **Say something like:** "since you've got a 'to sell' album, i can pull new photos straight from it each time. your mac will ask once if i can use the photos app. i only copy photos from that album."
+- **Their choices:** the album (one or two popups), AirDrop, or the inbox folder.
+- **If they hit Don't Allow:** use another route, or they switch it on in System Settings > Privacy & Security > Automation > <your app> > Photos (and Privacy & Security > Photos).
+
+### Apple's developer tools (only if git is missing)
+
+- **Check first:** `git --version`. On a Mac without developer tools, that command itself triggers the popup, so check with `xcode-select -p` first (it prints a path if they're installed, and an error with no popup if not).
+- **What pops up:** "The 'git' command requires the command line developer tools. Would you like to install the tools now?" It's a few-minute download.
+- **Their choices:** install the tools (useful later for updates), or skip git entirely and download the zip (no popup).
 
 ## First-time setup
 
@@ -31,37 +64,56 @@ This works on macOS only, for now. Do these steps in order. If a step fails, fol
 
 1. **Check that you can run commands on their Mac.** This only works if you can run shell commands on the seller's own machine (for example Claude desktop's Code tab, or Codex in the ChatGPT desktop app). A cloud sandbox can't see their browser login. If you're in one, tell them which app and mode to switch to, and stop. If they're not on a Mac, tell them it's Mac-only for now.
 
-2. **Get the files.** Clone into their home folder: `git clone <link> ~/trademe-for-agents`. Don't use Desktop or Documents: those are permission-protected and often synced to iCloud. If git isn't installed, macOS may offer to install developer tools (see the popups above). Or skip git: download `<link>/archive/refs/heads/main.zip`, unzip it to `~/trademe-for-agents`, and carry on. If the folder already exists, `git pull` inside it. Work from that folder from now on.
+2. **Say hello and set expectations** in a couple of lines: you'll install a small tool, use their Trade Me login from their browser, and ask a few quick questions about how they sell. Nothing gets posted without their yes.
 
-3. **Install Bun** (the runtime these scripts use) if `bun --version` fails: `curl -fsSL https://bun.sh/install | bash`. A fresh install isn't on the PATH of an already-open shell, so use `~/.bun/bin/bun` in place of `bun` until a new shell picks it up.
+3. **Get the files** into their home folder, as `~/trademe-for-agents`. Don't use Desktop or Documents: those are permission-protected and often synced to iCloud. If developer tools are installed, `git clone <link> ~/trademe-for-agents`. Otherwise, ask (see above), or download `<link>/archive/refs/heads/main.zip` and unzip it there. If the folder already exists, update it instead. Work from that folder from now on.
 
-4. **Install dependencies:** `bun install`.
+4. **Install Bun** (the runtime these scripts use) if `bun --version` fails: `curl -fsSL https://bun.sh/install | bash`. No popups. A fresh install isn't on the PATH of an already-open shell, so use `~/.bun/bin/bun` in place of `bun` until a new shell picks it up.
 
-5. **Run `bun tm doctor`.** It checks Bun, the photo tools, the browser, the Trade Me login and the seller's defaults, and prints a fix for each `✗`. The login and defaults are the next steps. Fix anything else first.
+5. **Install dependencies and check:** `bun install`, then `bun tm doctor --local`. That checks everything except Trade Me, with no popups. Fix any `✗` lines first.
 
-6. **Log in: `bun tm login`.** This reuses the seller's existing Trade Me login from Chrome, Arc, Brave or Edge (whichever profile has one), so they don't log in again. **Warn them about the Keychain popup first** (see above).
-   - Not logged in to Trade Me in any of those browsers: the command opens the Trade Me login page in Chrome (or whichever is installed) and waits up to 10 minutes. Tell them: "log in to trade me in the chrome window that just opened, then come back." Give the command a long timeout, or run it in the background.
-   - Safari only: Safari's login can't be read. Ask them to install Google Chrome and log in to Trade Me there once. They can keep using Safari for everything else.
-   - Several Chrome profiles: it uses whichever is logged in to Trade Me and remembers it.
-   - The login stays valid as long as they stay logged in to Trade Me in that browser. If a command says the login expired, ask them to open trademe.co.nz in that browser and log in, then retry.
-   - It reads only Trade Me's cookies, keeps them in memory, and sends them only to trademe.co.nz. Nothing is saved to disk.
+6. **Log in.** Run `bun tm login --check`, then follow "Reading their Trade Me login" above: explain, give the choices, and once they're ready run `bun tm login`. If they need to log in first, the command opens the Trade Me page in Chrome and waits up to 10 minutes. Give it a long timeout or run it in the background, and tell them to come back once they've logged in.
+   - Several browser profiles: it uses whichever is logged in to Trade Me and remembers it.
+   - The login keeps working as long as they stay logged in to Trade Me in that browser. If a command later says it expired, ask them to open trademe.co.nz in that browser, log in, and tell you when they're done.
 
-7. **Set the defaults: `bun tm setup`.** This reads the seller's suburb and usual payment methods from their Trade Me account. Read the result back to them in plain words and ask if it's right. For example: "listings will say pickup from Herne Bay, buyers can pay cash or Ping, and shipping is sorted out with the buyer after the sale. sound right?"
-   - Different suburb: `bun tm suburb <name>` to find it, then `bun tm setup --suburb "<name>"`. If more than one suburb has that name, add `--suburb-id <id>`.
-   - Different payment methods: `--payments cash,bank-deposit` (options: cash, bank-deposit, ping, afterpay, credit-card).
-   - Shipping: `--shipping arranged` (agree on it after the sale, the default), `pickup-only`, or `free`. Fixed shipping prices are set per item.
-   - Auctions instead of fixed prices: `--auction`.
+7. **Have the first conversation** (next section) and save their answers with `bun tm setup`.
 
-8. **Run `bun tm doctor` again.** When it says "all good", tell the seller they're set up and how to send photos (next section). Keep it short.
+8. **Run `bun tm doctor`.** When it says "all good", tell them they're set up, and that they can send photos whenever they're ready, the way they chose.
+
+## The first conversation
+
+Before the first listing, find out how this person likes to sell. Run `bun tm setup --preview` first. It suggests answers from their Trade Me account without saving anything, so most questions become "is this right?" rather than a blank form.
+
+Ask everything in **one friendly message**, with the suggested answer filled in for each, so they can reply "yep, all good" or change just one thing:
+
+1. **Pickup:** "are you happy for people to pick up from you for most things?" Most casual sellers are. If not, there's no pickup by default, so shipping can't be "pickup only".
+2. **Suburb:** "your trade me account says Herne Bay. is that where pickups happen?" Only the suburb appears on listings, never the street. If it's different, `bun tm suburb <name>` finds it. If there are two suburbs with that name, ask which city.
+3. **Shipping:** "for posting, the usual is to sort out the cost with the buyer after it sells. or i can make things pickup only by default, or offer free shipping." Explain "sort it out after" in a few words if they're new: the buyer messages them and they agree a price. Fixed shipping prices are better set per item, since they depend on size.
+4. **Payment:** "your account's set to take cash and Ping. want to keep that, or add bank deposit?" If the account had nothing set, suggest cash and bank deposit, the common pair. Only offer Ping or Afterpay if their account already has them.
+5. **Price style:** "do you want fixed prices (buyers pay your price and it's sold), or auctions (bidding over 7 days)?" Fixed price suits most casual sellers. Auctions suit items with uncertain value, or people who enjoy the bidding.
+6. **Photos:** "how do you want to send me photos?" Then offer the routes from "Getting photos", and mention which ones bring a one-time popup.
+
+Example:
+
+> a few quick ones so your listings come out right. just say "yep" if it all looks good:
+>
+> - pickup from Herne Bay for most things? (only the suburb shows on listings)
+> - shipping: sort it out with the buyer after it sells?
+> - payment: cash or Ping, like your account's set up?
+> - fixed prices rather than auctions?
+>
+> and for photos, easiest is airdropping them to your mac. or i can open a folder you drag them into.
+
+Then save their answers, e.g. `bun tm setup --suburb "Ponsonby" --pickup yes --shipping arranged --payments cash,bank-deposit`, plus `--auction` if they chose auctions. Read the saved result back to them in one line. Individual items can still differ ("the couch is pickup only"). Write those exceptions into that item's `listing.json`, not the defaults.
 
 ## Getting photos
 
-Offer whichever fits the seller. For most iPhone + Mac people, AirDrop is the easiest.
+Use whichever route they picked in the first conversation. For most iPhone + Mac people, AirDrop is the easiest.
 
-- **AirDrop to the Mac:** "airdrop the photos to your mac, then tell me when they're done." Then run `bun tm collect downloads --minutes 30`, widening the window if they sent them earlier. The first run triggers the Downloads popup, so warn them first.
+- **AirDrop to the Mac:** "airdrop the photos to your mac, then tell me when they're done." Then run `bun tm collect downloads --minutes 30`, widening the window if they sent them earlier. One-time popup: see above.
 - **A folder:** run `open inbox` so a Finder window appears, and ask them to drag the photos in. No popups.
 - **Drop them in the chat:** if you can see the actual file paths of attachments, pass them to `bun tm add-photos`. If you can only see the images and can't reach the files, say so and use another route. Never try to recreate a photo.
-- **An Apple Photos album:** `bun tm collect album "<album name>"`, for people who already keep a "to sell" album. It triggers the Photos popup the first time. Only new photos are copied each time, so the album works as an ongoing queue.
+- **An Apple Photos album:** `bun tm collect album "<album name>"`. Only new photos are copied each time, so the album works as an ongoing queue. One-time popup: see above.
 
 Then run `bun tm inbox`. It lists each photo with a small JPEG preview (HEIC included) for you to look at.
 

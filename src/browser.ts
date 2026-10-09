@@ -59,6 +59,16 @@ async function trademeRows(profile: Profile) {
   }
 }
 
+// Trade Me's long-lived login cookie names, checked by name only.
+export async function loginCandidates() {
+  const found: Profile[] = [];
+  for (const profile of await profiles()) {
+    const rows = await trademeRows(profile).catch(() => []);
+    if (rows.some(r => /^(idsrv|Auth\.IdToken|login%5Fmember%5Fid)$/.test(r.name))) found.push(profile);
+  }
+  return found;
+}
+
 const keys = new Map<string, Buffer>();
 
 // The first read makes macOS ask for the login password. "Always Allow" stops it asking again.

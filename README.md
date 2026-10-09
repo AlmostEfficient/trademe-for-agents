@@ -1,6 +1,6 @@
 # Trade Me for agents
 
-sell your stuff on trade me by texting your ai. send it photos, tell it the price and what's wrong with the thing, say yes, and it's listed.
+ell your stuff on trade me by texting your ai. send it photos, tell it the price and what's wrong with the thing, say yes, and it's listed.
 
 ## setup
 
